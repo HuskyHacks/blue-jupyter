@@ -1,11 +1,27 @@
-FROM ubuntu:20.04
-RUN apt-get update && apt-get -y update
-RUN apt-get install -y build-essential python3.6 python3-pip python3-dev
-RUN pip3 -q install pip --upgrade
+# Use the official Poetry Docker image with Python 3.8
+FROM python:3.8
 
-RUN mkdir src
-WORKDIR src/
+# Set the working directory
+WORKDIR /src
+
+# Install system dependencies required for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only the dependency files first to leverage Docker caching
+COPY pyproject.toml poetry.lock ./
+
+# Use Poetry to install dependencies and generate requirements.txt
+RUN pip install --upgrade pip \
+    && pip install poetry \
+    && poetry export -f requirements.txt --output requirements.txt --without-hashes \
+    && pip install -r requirements.txt
+
+# Copy the rest of the application code
 COPY . .
-RUN pip3 install -r requirements.txt
 
+# Default command to start the application
 CMD ["jupyter", "notebook", "--allow-root", "--ip=0.0.0.0", "--no-browser"]
